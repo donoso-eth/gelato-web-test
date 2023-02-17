@@ -16,35 +16,48 @@ import {
   GaslessWalletInterface,
   LoginConfig,
 } from "@gelatonetwork/gasless-onboarding";
-
+import { SafeEventEmitterProvider, UserInfo } from "@web3auth/base";
 import { ColorModeSwitcher } from "./ColorModeSwitcher"
 import { Logo } from "./Logo"
 
-const gaslessWalletConfig: GaslessWalletConfig = {
-  apiKey: 'B8owAox7gHl8qcdBM1yPaEdjp6uqYTWecCvgSGrU4cY_'
-};
-const loginConfig: LoginConfig = {
-  chain: {
-    id: 80001,
-    rpcUrl: 'https://polygon-mumbai.infura.io/v3/9a9c5c7e10084eaa98fd8b71b9cb5dd1',
-  },
-  openLogin: {
-    redirectUrl: `${window.location.origin}`,
-  },
-};
-const gaslessOnboarding = new GaslessOnboarding(
-  loginConfig,
-  gaslessWalletConfig
-);
+
 
 export const App = () => {
   const [isReady, setIsReady] = useState(false);
   const [authProvider, setAuthProvider]: any = useState(undefined);
-
+  const [gaslessOnboarding, setGelatoLogin] = useState<
+  GaslessOnboarding | undefined
+>();
+const [web3AuthProvider, setWeb3AuthProvider] = useState<SafeEventEmitterProvider | null>(null);
   useEffect(() => {
     const init = async () => {
-      const auth = await gaslessOnboarding.init();
-      setAuthProvider(auth);
+  
+      const gaslessWalletConfig: GaslessWalletConfig = {
+        apiKey: 'B8owAox7gHl8qcdBM1yPaEdjp6uqYTWecCvgSGrU4cY_'
+      };
+      const loginConfig: LoginConfig = {
+        chain: {
+          id: 80001,
+          rpcUrl: 'https://polygon-mumbai.infura.io/v3/9a9c5c7e10084eaa98fd8b71b9cb5dd1',
+        },
+        openLogin: {
+          redirectUrl: `${window.location.origin}`,
+        },
+      };
+      const gaslessOnboarding = new GaslessOnboarding(
+        loginConfig,
+        gaslessWalletConfig
+      );
+
+      await gaslessOnboarding.init();
+      setGelatoLogin(gaslessOnboarding);
+      const provider = gaslessOnboarding.getProvider();
+      console.log(provider);
+      if (provider) {
+        setWeb3AuthProvider(provider);
+        const user = await gaslessOnboarding.getUserInfo();
+        console.log(user);
+      }
       // try {
       //   await gaslessOnboarding.logout();
       //   let web3authProvider = await gaslessOnboarding.login();
@@ -64,7 +77,22 @@ export const App = () => {
     init();
   }, []);
 
-  console.log(authProvider)
+  const login = async () => {
+    if (!gaslessOnboarding) {
+      return;
+    }
+    const web3authProvider = await gaslessOnboarding.login();
+    setWeb3AuthProvider(web3authProvider);
+  };
+
+  const logout = async () => {
+    if (!gaslessOnboarding) {
+      return;
+    }
+    await gaslessOnboarding.logout();
+    setWeb3AuthProvider(null);
+  };
+
 
   return (
     <ChakraProvider theme={theme}>
@@ -85,14 +113,20 @@ export const App = () => {
             >
               Learn Chakra
             </Link>
-            <Button
-              onClick={async () => {
-                await gaslessOnboarding.login();
-              }}
+           { !web3AuthProvider && ( <Button
+              onClick={login}
               isDisabled={!isReady}
             >
               LOGIN
-            </Button>
+            </Button>)}
+            { web3AuthProvider && (<Button
+              onClick={logout}
+              isDisabled={!isReady}
+            >
+              LOG OUT
+            </Button>)
+
+            }
           </VStack>
         </Grid>
       </Box>
